@@ -1,0 +1,77 @@
+From f377fe42530efa51ffe9b8ecdcd8958504ec9cdd Mon Sep 17 00:00:00 2001
+From: Gabi Falk <gabifalk@gmx.com>
+Date: Sat, 6 Jun 2026 08:00:00 +0000
+Subject: [PATCH] parisc: Evaluate __get_user() pointer argument only once
+
+Commit 89f686a0fb6e ("parisc: Revise __get_user() to probe user read
+access") added a second use of the pointer argument to the __get_user()
+macro: in addition to __get_user_internal(), the value is now also
+passed to the new __probe_user_internal().  Before that commit 'ptr' was
+referenced exactly once.
+
+Since __get_user() is a macro, a caller passing a side-effecting
+expression now evaluates it twice.  gpr_set() in arch/parisc/kernel/
+ptrace.c does exactly that:
+
+	for (; count > 0 && pos < ELF_NGREG; --count) {
+		if (__get_user(reg, u++))
+			return -EFAULT;
+		set_reg(regs, pos++, reg);
+	}
+
+'u++' is textually substituted into both the load and the probe, so 'u'
+is advanced twice per iteration while 'pos' advances by one.  The target
+register set is read from the wrong source slots; in particular gr[31]
+is loaded with a stale value.  When a ptrace supervisor (e.g. strace
+return-value injection, which suppresses the syscall by setting the
+syscall number to -1 and rewrites the registers) resumes the tracee, the
+corrupted gr[31] makes the syscall-exit path branch into the gateway
+page region, killing the tracee with SIGSEGV (si_addr=0xc3).  This is
+reproducible on every strace "*-success" injection test, e.g.:
+
+	strace -e inject=getppid:retval=0 ./getppid
+
+Bind the pointer to a temporary so it is evaluated exactly once and use
+that for both the load and the probe.  While here, make the probe output
+operand an early-clobber ("=&r"), matching prober_user() in
+special_insns.h, so the result register cannot be allocated on top of
+the pointer input.
+
+Fixes: 89f686a0fb6e ("parisc: Revise __get_user() to probe user read access")
+Cc: stable@vger.kernel.org # v5.12+
+Signed-off-by: Gabi Falk <gabifalk@gmx.com>
+---
+ arch/parisc/include/asm/uaccess.h | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/arch/parisc/include/asm/uaccess.h b/arch/parisc/include/asm/uaccess.h
+index 6c531d2c847e..4a1ec7d5091a 100644
+--- a/arch/parisc/include/asm/uaccess.h
++++ b/arch/parisc/include/asm/uaccess.h
+@@ -47,18 +47,18 @@
+ 	__asm__("\tproberi (%%sr%1,%2),%3,%0\n"			\
+ 		"\tcmpiclr,= 1,%0,%0\n"				\
+ 		"\tldi %4,%0\n"					\
+-		: "=r"(error)					\
++		: "=&r"(error)					\
+ 		: "i"(sr), "r"(ptr), "i"(PRIV_USER),		\
+ 		  "i"(-EFAULT));				\
+ })
+ 
+ #define __get_user(val, ptr)					\
+ ({								\
+-	register long __gu_err;					\
+-								\
+-	__gu_err = __get_user_internal(SR_USER, val, ptr);	\
++	/* evaluate ptr once: it is used by both the load and the probe */ \
++	__typeof__(ptr) __gu_ptr = (ptr);			\
++	long __gu_err = __get_user_internal(SR_USER, val, __gu_ptr); \
+ 	if (likely(!__gu_err))					\
+-		__probe_user_internal(SR_USER, __gu_err, ptr);	\
++		__probe_user_internal(SR_USER, __gu_err, __gu_ptr); \
+ 	__gu_err;						\
+ })
+ 
+-- 
+gabi
+

@@ -42,6 +42,7 @@ unknown_arch() {
 #   CONSOLE       serial console tty for the kernel cmdline
 QEMU_MACHINE=
 NINEP_BUS=
+BLK_QUEUE_SIZE=
 case "$ARCH" in
 m68k)
 	QEMU_MACHINE=virt
@@ -79,6 +80,16 @@ mips64el)
 	NINEP_DEVICE=virtio-9p-pci
 	CONSOLE=ttyS0
 	;;
+hppa)
+	QEMU_MACHINE=C3700
+	QEMU_BIN=qemu-system-hppa
+	QEMU_MEM=2G
+	QEMU_SMP=1
+	KERNEL_IMAGE=images/vmlinux
+	NINEP_DEVICE=virtio-9p-pci
+	CONSOLE=ttyS0
+	BLK_QUEUE_SIZE=128
+	;;
 *)
 	unknown_arch
 	;;
@@ -86,6 +97,7 @@ esac
 
 # virtio-blk device model mirrors the per-arch 9p transport (device/ccw/pci).
 BLK_DEVICE="virtio-blk-${NINEP_DEVICE##*-}"
+[ -z "$BLK_QUEUE_SIZE" ] || BLK_DEVICE="$BLK_DEVICE,queue-size=$BLK_QUEUE_SIZE"
 
 # The strace build tree is served to the guest on an ext2 image over virtio-blk
 # (a real local filesystem, far cheaper per-op than the 9p protocol), mounted
