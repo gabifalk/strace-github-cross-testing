@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: cross
+
+on:
+  workflow_call:
+    inputs:
+      arches:
+        required: false
+        type: string
+        default: ""
+      shards:
+        required: false
+        type: number
+        default: 20
+      strace-repository:
+        required: false
+        type: string
+        default: ""
+      strace-ref:
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  setup:
+    name: Resolve inputs
+    runs-on: ubuntu-24.04
+    outputs:
+      arches: ${{ steps.resolve.outputs.arches }}
+      strace_repository: ${{ steps.resolve.outputs.strace_repository }}
+      strace_ref: ${{ steps.resolve.outputs.strace_ref }}
+    steps:
+      - name: Check out this action's repository
+        uses: actions/checkout@v6
+        with:
+          repository: gabifalk/strace-github-cross-testing
+          ref: ${{ github.job_workflow_sha }}
+
+      - name: Resolve inputs (arch list + strace source fallbacks)
+        id: resolve
+        env:
+          IN_ARCHES: ${{ inputs.arches }}
+          IN_REPO: ${{ inputs.strace-repository }}
+          IN_REF: ${{ inputs.strace-ref }}
+          DEF_REPO: ${{ github.repository }}
+          DEF_REF: ${{ github.sha }}
+        run: |
+          echo "arches=$(ci/resolve-arches "$IN_ARCHES" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+          echo "strace_repository=${IN_REPO:-$DEF_REPO}" >> "$GITHUB_OUTPUT"
+          echo "strace_ref=${IN_REF:-$DEF_REF}" >> "$GITHUB_OUTPUT"
+
+  arch:
+    name: ${{ matrix.arch }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(needs.setup.outputs.arches) }}
+    uses: ./.github/workflows/arch.yml
+    with:
+      arch: ${{ matrix.arch }}
+      shards: ${{ inputs.shards }}
+      strace-repository: ${{ needs.setup.outputs.strace_repository }}
+      strace-ref: ${{ needs.setup.outputs.strace_ref }}

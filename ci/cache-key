@@ -1,0 +1,14 @@
+#!/bin/sh -efux
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# Prints the per-arch cache/artifact key (<buildroot-version>-<arch>-cfg<N>).
+#
+# Usage: cache-key <arch>
+
+ARCH="${1:?usage: cache-key <arch>}"
+export ARCH
+
+# shellcheck source=ci/lib.sh disable=SC1091
+. "${0%/*}/lib.sh"
+
+cache_key "$ARCH"

@@ -1,0 +1,15 @@
+#!/bin/sh -efux
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Usage: resolve-arches [arches]
+# Prints one arch per line: the space-separated argument if non-empty,
+# otherwise the contents of the sibling 'arches' file.
+
+input="${1-}"
+if [ -n "$input" ]; then
+	# shellcheck disable=SC2086
+	printf '%s\n' $input
+else
+	while IFS= read -r line || [ -n "$line" ]; do
+		[ -n "$line" ] && printf '%s\n' "$line"
+	done < "${0%/*}/arches"
+fi

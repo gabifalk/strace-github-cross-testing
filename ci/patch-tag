@@ -1,0 +1,14 @@
+#!/bin/sh -efux
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Usage: patch-tag [patch-dir]
+# Prints a cache tag identifying the applied strace patch set:
+#   no/empty argument -> "nopatch"
+#   otherwise         -> a hash over the git-tracked files in <patch-dir>
+# Must be run inside the action's git checkout.
+
+dir="${1-}"
+if [ -z "$dir" ]; then
+	printf 'nopatch\n'
+else
+	printf '%s\n' "$(git ls-files -s -- "$dir" | git hash-object --stdin)"
+fi
