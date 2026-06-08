@@ -52,14 +52,18 @@ parallel QEMU jobs.
 
 ## Patches
 
-Two patches are applied to the cross toolchain during the Buildroot build (via
+Patches are applied to Buildroot packages during the build (via
 `BR2_GLOBAL_PATCH_DIR` in the arch configs that need them), fixing
-build-environment bugs that would otherwise cause false strace failures:
+build-environment and kernel bugs that would otherwise cause false strace
+failures.  Buildroot applies each `ci/patches/<package>/` subdirectory to the
+package of that name:
 
 - [`ci/patches/gcc/`](ci/patches/gcc) -- m68k `fold-mem-offsets` miscompile
   breaking `sendfile`/`splice`.
 - [`ci/patches/elfutils/`](ci/patches/elfutils) -- mips64el MIPS unwinding bug
   breaking `strace -k`/`-kk`.
+- [`ci/patches/linux/`](ci/patches/linux) -- hppa (parisc) `__get_user` kernel
+  bug that evaluates its pointer argument twice.
 
 ## Running locally
 
