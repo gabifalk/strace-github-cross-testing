@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [m68k, s390x, sparc64, mips64el, hppa]
+        arch: [m68k, s390x, sparc64, mips64el, hppa, powerpc64]
     uses: ./.github/workflows/arch.yml
     with:
       arch: ${{ matrix.arch }}

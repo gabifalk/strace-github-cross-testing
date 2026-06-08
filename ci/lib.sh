@@ -90,6 +90,15 @@ hppa)
 	CONSOLE=ttyS0
 	BLK_QUEUE_SIZE=128
 	;;
+powerpc64)
+	QEMU_MACHINE=pseries
+	QEMU_BIN=qemu-system-ppc64
+	QEMU_MEM=2G
+	QEMU_SMP=1
+	KERNEL_IMAGE=images/vmlinux
+	NINEP_DEVICE=virtio-9p-pci
+	CONSOLE=hvc0
+	;;
 *)
 	unknown_arch
 	;;
