@@ -1,0 +1,76 @@
+From: Gabi Falk <gabifalk@gmx.com>
+Date: Sun, 7 Jun 2026 08:00:00 +0000
+Subject: [PATCH] mips: forward seven arguments from the public syscall() on o32
+
+The o32 ABI implements some syscalls that take 64-bit arguments as
+seven-argument syscalls -- an explicit alignment pad followed by two
+64-bit values, each split into a register/stack pair, plus a trailing
+32-bit argument.  fadvise64_64 (reached via __NR_fadvise64 on o32) and
+sync_file_range are the two such syscalls.
+
+The generic Linux implementation of the public syscall() function
+(sysdeps/unix/sysv/linux/syscall.c) only forwards six arguments, so the
+seventh -- "advice" for fadvise64_64, "flags" for sync_file_range -- was
+silently dropped and never reached the kernel.  glibc's own callers are
+unaffected because they go through internal_syscall7, but applications
+(and test suites such as strace's) that issue these syscalls through the
+public syscall() interface received the wrong result.
+
+Provide an o32 variant of syscall() that forwards seven arguments.  o32
+already has internal_syscall7 (via __mips_syscall7); n32/n64 keep the
+generic six-argument implementation as they have no seven-argument
+syscalls.  As in the RISC-V variant the arguments are received as named
+parameters rather than through <stdarg.h>: o32 va_arg over-aligns the
+stack overflow area and would skip the first stack-resident argument.
+
+Signed-off-by: Gabi Falk <gabifalk@gmx.com>
+---
+diff --git a/sysdeps/unix/sysv/linux/mips/mips32/syscall.c b/sysdeps/unix/sysv/linux/mips/mips32/syscall.c
+new file mode 100644
+index 0000000..fb0a612
+--- /dev/null
++++ b/sysdeps/unix/sysv/linux/mips/mips32/syscall.c
+@@ -0,0 +1,43 @@
++/* Indirect system call.  Linux/MIPS o32 version.
++   Copyright (C) 1997-2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library.  If not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <sysdep.h>
++
++/* The o32 ABI implements some syscalls that take 64-bit arguments as
++   seven-argument syscalls (an explicit alignment pad plus two 64-bit
++   values split into register/stack pairs), namely fadvise64_64 and
++   sync_file_range.  The generic implementation only forwards six
++   arguments, so provide an o32 variant that forwards seven.
++
++   Like the RISC-V variant, the arguments are received as named
++   parameters rather than through <stdarg.h>: o32 va_arg over-aligns the
++   stack overflow area and would skip the first stack-resident argument,
++   which would corrupt the argument list of these very syscalls.  */
++
++long int
++syscall (long int number, long int a0, long int a1, long int a2,
++	 long int a3, long int a4, long int a5, long int a6)
++{
++  long int r = INTERNAL_SYSCALL_NCS_CALL (number, a0, a1, a2, a3, a4, a5, a6);
++  if (__glibc_unlikely (INTERNAL_SYSCALL_ERROR_P (r)))
++    {
++      __set_errno (-r);
++      return -1;
++    }
++  return r;
++}

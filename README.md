@@ -64,6 +64,9 @@ package of that name:
   breaking `strace -k`/`-kk`.
 - [`ci/patches/linux/`](ci/patches/linux) -- hppa (parisc) `__get_user` kernel
   bug that evaluates its pointer argument twice.
+- [`ci/patches/glibc/`](ci/patches/glibc) -- mips o32 `syscall()` and
+  `__syscall_cancel()` dropping the 7th argument, breaking
+  `fadvise64`/`sync_file_range`.
 
 ## Running locally
 

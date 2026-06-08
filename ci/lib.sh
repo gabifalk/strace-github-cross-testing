@@ -80,6 +80,15 @@ mips64el)
 	NINEP_DEVICE=virtio-9p-pci
 	CONSOLE=ttyS0
 	;;
+mips)
+	QEMU_MACHINE=malta
+	QEMU_BIN=qemu-system-mips
+	QEMU_MEM=2G
+	QEMU_SMP=1
+	KERNEL_IMAGE=images/vmlinux
+	NINEP_DEVICE=virtio-9p-pci
+	CONSOLE=ttyS0
+	;;
 hppa)
 	QEMU_MACHINE=C3700
 	QEMU_BIN=qemu-system-hppa

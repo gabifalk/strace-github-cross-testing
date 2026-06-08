@@ -1,0 +1,35 @@
+From: Gabi Falk <gabifalk@gmx.com>
+Date: Sun, 8 Jun 2026 08:00:00 +0000
+Subject: [PATCH] nptl: forward the seventh argument from __syscall_cancel()
+
+On configurations that define HAVE_CANCELABLE_SYSCALL_WITH_7_ARGS
+(currently only mips o32) a cancellable syscall may take seven
+arguments.  __internal_syscall_cancel() correctly forwards the seventh
+argument to the architecture entry point using __SYSCALL_CANCEL7_ARG7
+(which expands to "a7,"), but __syscall_cancel() forwards it to
+__internal_syscall_cancel() using __SYSCALL_CANCEL7_ARG instead, which
+expands to the literal filler "0," used by the zero-to-six argument
+dispatch macros.
+
+As a result the seventh argument is replaced with 0 for every seven
+argument cancellable syscall issued through the public wrappers.  On
+mips o32 this affects sync_file_range(), whose "flags" argument is
+silently zeroed.
+
+Use __SYSCALL_CANCEL7_ARG7 so the real seventh argument is forwarded.
+
+Signed-off-by: Gabi Falk <gabifalk@gmx.com>
+---
+diff --git a/nptl/cancellation.c b/nptl/cancellation.c
+index 0e9c8c7..1a2b3c4 100644
+--- a/nptl/cancellation.c
++++ b/nptl/cancellation.c
+@@ -73,7 +73,7 @@ __syscall_cancel (__syscall_arg_t a1, __syscall_arg_t a2,
+ 		  __SYSCALL_CANCEL7_ARG_DEF __syscall_arg_t nr)
+ {
+   long int r = __internal_syscall_cancel (a1, a2, a3, a4, a5, a6,
+-					  __SYSCALL_CANCEL7_ARG nr);
++					  __SYSCALL_CANCEL7_ARG7 nr);
+   return __glibc_unlikely (INTERNAL_SYSCALL_ERROR_P (r))
+ 	 ? SYSCALL_ERROR_LABEL (INTERNAL_SYSCALL_ERRNO (r))
+ 	 : r;
